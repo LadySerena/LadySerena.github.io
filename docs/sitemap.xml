@@ -3,26 +3,26 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>blog.serenacodes.com/about/about-me/</loc>
+    <loc>https://blog.serenacodes.com/about/about-me/</loc>
     <lastmod>2021-01-01T22:16:24-06:00</lastmod>
   </url>
   
   <url>
-    <loc>blog.serenacodes.com/about/</loc>
+    <loc>https://blog.serenacodes.com/about/</loc>
     <lastmod>2021-01-01T22:16:24-06:00</lastmod>
   </url>
   
   <url>
-    <loc>blog.serenacodes.com/</loc>
+    <loc>https://blog.serenacodes.com/</loc>
     <lastmod>2021-01-01T22:16:24-06:00</lastmod>
   </url>
   
   <url>
-    <loc>blog.serenacodes.com/categories/</loc>
+    <loc>https://blog.serenacodes.com/categories/</loc>
   </url>
   
   <url>
-    <loc>blog.serenacodes.com/tags/</loc>
+    <loc>https://blog.serenacodes.com/tags/</loc>
   </url>
   
 </urlset>

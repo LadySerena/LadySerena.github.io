@@ -1,4 +1,4 @@
-baseURL = "blog.serenacodes.com"
+baseURL = "https://blog.serenacodes.com/"
 languageCode = "en-us"
 title = "Serena's Blog"
 theme = "hugo-PaperMod"
