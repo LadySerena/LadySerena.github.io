@@ -5,14 +5,13 @@
     <link>https://blog.serenacodes.com/</link>
     <description>Recent content on Serena&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language>
-    <lastBuildDate>Fri, 01 Jan 2021 22:16:24 -0600</lastBuildDate><atom:link href="https://blog.serenacodes.com/index.xml" rel="self" type="application/rss+xml" />
+    <language>en-us</language><atom:link href="https://blog.serenacodes.com/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>About Me</title>
-      <link>https://blog.serenacodes.com/about/about-me/</link>
+      <link>https://blog.serenacodes.com/about/</link>
       <pubDate>Fri, 01 Jan 2021 22:16:24 -0600</pubDate>
       
-      <guid>https://blog.serenacodes.com/about/about-me/</guid>
+      <guid>https://blog.serenacodes.com/about/</guid>
       <description>Hello I&amp;rsquo;m Serena and welcome to my blog. I post some tech things as well as my nonsense projects. I do the SRE thing and recently got into CTFs.</description>
     </item>
     

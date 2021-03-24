@@ -1,0 +1,25 @@
+baseURL: 'https://blog.serenacodes.com/'
+languageCode: en-us
+title: Serena's Blog
+theme: hugo-PaperMod
+publishdir: ./docs/
+params:
+  defaultTheme: light
+  homeInfoParams:
+    title: "Welcome to Serena's Cabinet of DevOps Curiosities"
+    subtitle: "Hot Takes with a Pinch of Snark"
+  socialIcons: # optional
+  - name: "Github"
+    url: "https://github.com/LadySerena"
+  - name: "Twitter"
+    url: "https://twitter.com/SerenaTiede"
+menu:
+  main:
+    - identifier: about
+      name: about
+      url: /about/
+      weight: 10
+    - identifier: tags
+      name: tags
+      url: /tags/
+      weight: 20

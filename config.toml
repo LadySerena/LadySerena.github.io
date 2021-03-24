@@ -1,5 +1,0 @@
-baseURL = "https://blog.serenacodes.com/"
-languageCode = "en-us"
-title = "Serena's Blog"
-theme = "hugo-PaperMod"
-publishdir = "./docs/"
