@@ -7,3 +7,5 @@ draft: false
 
 Hello I'm Serena and welcome to my blog. I post some tech things as well as my nonsense projects. I do the SRE thing and
 recently got into CTFs.
+
+I'm now getting super into Kubernetes and it's pretty cool.
