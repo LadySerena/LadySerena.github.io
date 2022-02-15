@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>Cilium on Raspberry Pi | Serena&#39;s Blog</title>
+<meta name="keywords" content="Kubernetes, Homelab" />
+<meta name="description" content="Cilium for CNI for a Raspberry Pi Kubernetes Cluster">
+<meta name="author" content="">
+<link rel="canonical" href="https://blog.serenacodes.com/posts/cilium-on-raspberry-pi/" />
+<link crossorigin="anonymous" href="/assets/css/stylesheet.min.c88963fe2d79462000fd0fb1b3737783c32855d340583e4523343f8735c787f0.css" integrity="sha256-yIlj/i15RiAA/Q&#43;xs3N3g8MoVdNAWD5FIzQ/hzXHh/A=" rel="preload stylesheet" as="style">
+<script defer crossorigin="anonymous" src="/assets/js/highlight.min.7680afc38aa6b15ddf158a4f3780b7b1f7dde7e91d26f073e6229bb7a0793c92.js" integrity="sha256-doCvw4qmsV3fFYpPN4C3sffd5&#43;kdJvBz5iKbt6B5PJI="
+    onload="hljs.initHighlightingOnLoad();"></script>
+<link rel="icon" href="https://blog.serenacodes.com/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://blog.serenacodes.com/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://blog.serenacodes.com/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://blog.serenacodes.com/apple-touch-icon.png">
+<link rel="mask-icon" href="https://blog.serenacodes.com/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+</noscript><meta property="og:title" content="Cilium on Raspberry Pi" />
+<meta property="og:description" content="Cilium for CNI for a Raspberry Pi Kubernetes Cluster" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://blog.serenacodes.com/posts/cilium-on-raspberry-pi/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-02-15T10:44:48-06:00" />
+<meta property="article:modified_time" content="2022-02-15T10:44:48-06:00" />
+
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Cilium on Raspberry Pi"/>
+<meta name="twitter:description" content="Cilium for CNI for a Raspberry Pi Kubernetes Cluster"/>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://blog.serenacodes.com/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "Cilium on Raspberry Pi",
+      "item": "https://blog.serenacodes.com/posts/cilium-on-raspberry-pi/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cilium on Raspberry Pi",
+  "name": "Cilium on Raspberry Pi",
+  "description": "Cilium for CNI for a Raspberry Pi Kubernetes Cluster",
+  "keywords": [
+    "Kubernetes", "Homelab"
+  ],
+  "articleBody": "Intro Hello everyone and today I’m going through the steps I took to get cilium up and running on my raspberry pis. This post is going to go through the sysctls I had to enable as well as enabling the appropriate kernel modules that aren’t part of the stock kernel package. Without further ado let’s get into it!\nSo why did I get into cilium for CNI when a lot of people really like calico or flannel? I hang out on Twitter and a lot of people were really amped about cilium and how powerful eBPF (Extended Berkeley Packet Filter) is and you can write programs to do really cool observability things. My coworker proceeded to say a string of words that I couldn’t parse because I’m not all that familiar with packet filter programs, but I knew that if cool people say this is important tech then I should at least check it out.\nI chose cilium for CNI, but I needed a home for my Kubernetes cluster. I priced out a GKE cluster, and noticed that for the VMs it would cost me about $300 a month…That was a bit expensive for me. I instead bought 3 Raspberry Pis and got some 256GB SSDs and the USB3 to SATA connectors. I think I had a one time cost of about $500 (still a chunk of change but one time purchase vs ongoing expense is more affordable).\nImage Building Now that I have hardware in hand, I need to grab a Linux distro. I’m lazy and don’t want to configure everything by hand so let’s make our own images! I was pretty familiar with Packer and there’s a [builder for ARM] packer-builder-arm, but I had some issues with it on newer Packer versions, but it was helpful. I read the source code to learn how to mount .img files. It uses losetup which creates loop devices (fake block devices).\nI found a blog post on building custom Arch Linux ARM images, in the end I used ubuntu server 21.10 but this was helpful for me understanding how to build my own images.\nAfter cobbling together the sources to build my own image I wrote this script to build my own Raspberry Pi images link to script. Let’s step through what the script is doing. The linked script is not as annotated as the one in this post, but I wanted to annotate this one since I don’t want to give readers a script and not explain what is happening. You may have to scroll to see the full script comments.\n#!/usr/bin/env bash # tells the shell which interpreter to use in this case it is bash set -exo pipefail #print which commands are being ran for debugging and have the script fail if a  # command fails wget https://cdimage.ubuntu.com/releases/21.10/release/ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz echo \"126f940d3b270a6c1fc5a183ac8a3d193805fead4f517296a7df9d3e7d691a03 *ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz\" | shasum -a 256 --check # decompress the image file since we can't manipulate compressed files xz -dk ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz # mount the image file onto a loop device sudo losetup -Pf ubuntu-21.10-preinstalled-server-arm64+raspi.img # I had to expand the root partition by 2GB to contain all the packages I was using sudo truncate -c -s +2048M ubuntu-21.10-preinstalled-server-arm64+raspi.img # parted gives machine parsable output on the partition table and I then get the array to get the new ending sector  # before expanding the partition IN=$(sudo parted /dev/loop0 print -m -s | tail -n 1) # I had to disable this part of shellcheck (great linter btw) since I did want to split the output # shellcheck disable=SC2206 arrIN=(${IN//:/ }) # the third item in the array contained the new ending sector of the root partition sudo parted /dev/loop0 resizepart 2 \"${arrIN[2]}\" -s # forces a check and repair of the partition (it was required to get the resize2fs command to work) sudo e2fsck -p -f /dev/loop0p2 # finally resize the filesystem to use the newly added space sudo resize2fs /dev/loop0p2 # setup the mount points for the image sudo mount /dev/loop0p2 /mnt/ sudo mount /dev/loop0p1 /mnt/boot/firmware Breadcrumbs to Get Cilium Working Install Kubernetes ",
+  "wordCount" : "675",
+  "inLanguage": "en",
+  "datePublished": "2022-02-15T10:44:48-06:00",
+  "dateModified": "2022-02-15T10:44:48-06:00",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://blog.serenacodes.com/posts/cilium-on-raspberry-pi/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Serena's Blog",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://blog.serenacodes.com/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="https://blog.serenacodes.com/" accesskey="h" title="Serena&#39;s Blog (Alt + H)">Serena&#39;s Blog</a>
+            <span class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </span>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="https://blog.serenacodes.com/about/" title="about">
+                    <span>about</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://blog.serenacodes.com/tags/" title="tags">
+                    <span>tags</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://blog.serenacodes.com/series/" title="series">
+                    <span>series</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title">
+      Cilium on Raspberry Pi
+    </h1>
+    <div class="post-description">
+      Cilium for CNI for a Raspberry Pi Kubernetes Cluster
+    </div>
+    <div class="post-meta"><span title='2022-02-15 10:44:48 -0600 CST'>February 15, 2022</span>
+
+</div>
+  </header> 
+  <div class="post-content"><h2 id="intro">Intro<a hidden class="anchor" aria-hidden="true" href="#intro">#</a></h2>
+<p>Hello everyone and today I&rsquo;m going through the steps I took to get cilium up and running on my raspberry pis. This post
+is going to go through the sysctls I had to enable as well as enabling the appropriate kernel modules that aren&rsquo;t part
+of the stock kernel package. Without further ado let&rsquo;s get into it!</p>
+<p>So why did I get into cilium for CNI when a lot of people really like calico or flannel? I hang out on Twitter and a lot
+of people were really amped about cilium and how powerful eBPF (Extended Berkeley Packet Filter) is and you can write
+programs to do really cool observability things. My coworker proceeded to say a string of words that I couldn&rsquo;t parse
+because I&rsquo;m not all that familiar with packet filter programs, but I knew that if cool people say this is important tech
+then I should at least check it out.</p>
+<p>I chose cilium for CNI, but I needed a home for my Kubernetes cluster. I priced out a GKE cluster, and noticed that for
+the VMs it would cost me about $300 a month&hellip;That was a bit expensive for me. I instead bought 3 Raspberry Pis and got
+some 256GB SSDs and the USB3 to SATA connectors. I think I had a one time cost of about $500 (still a chunk of change
+but one time purchase vs ongoing expense is more affordable).</p>
+<h2 id="image-building">Image Building<a hidden class="anchor" aria-hidden="true" href="#image-building">#</a></h2>
+<p>Now that I have hardware in hand, I need to grab a Linux distro. I&rsquo;m lazy and don&rsquo;t want to configure everything by hand
+so let&rsquo;s make our own images! I was pretty familiar with <a href="https://www.packer.io/">Packer</a> and there&rsquo;s a [builder for ARM]
+<a href="https://github.com/mkaczanowski/packer-builder-arm">packer-builder-arm</a>, but I had some issues with it on newer Packer versions, but it was helpful. I read the source code
+to learn how to mount <code>.img</code> files. It uses <a href="https://manpages.debian.org/bullseye/mount/losetup.8.en.html">losetup</a> which creates loop devices (fake block devices).</p>
+<p>I found a <a href="https://disconnected.systems/blog/raspberry-pi-archlinuxarm-setup/">blog post</a> on building custom Arch Linux ARM images, in the end I used ubuntu server 21.10
+but this was helpful for me understanding how to build my own images.</p>
+<p>After cobbling together the sources to build my own image I wrote this script to build my own Raspberry Pi images
+<a href="https://github.com/LadySerena/tf-platform/blob/0caefa59da44cc664793d795364b2db740ad612e/scripts/ubuntu-21-10.bash">link to script</a>. Let&rsquo;s step through what the script is doing. The linked script is not as annotated
+as the one in this post, but I wanted to annotate this one since I don&rsquo;t want to give readers a script and not explain
+what is happening. You may have to scroll to see the full script comments.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="color:#75715e">#!/usr/bin/env bash
+</span><span style="color:#75715e"></span><span style="color:#75715e"># tells the shell which interpreter to use in this case it is bash</span>
+set -exo pipefail 
+<span style="color:#75715e">#print which commands are being ran for debugging and have the script fail if a </span>
+<span style="color:#75715e"># command fails</span>
+
+wget https://cdimage.ubuntu.com/releases/21.10/release/ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz
+echo <span style="color:#e6db74">&#34;126f940d3b270a6c1fc5a183ac8a3d193805fead4f517296a7df9d3e7d691a03 *ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz&#34;</span> | shasum -a <span style="color:#ae81ff">256</span> --check
+
+<span style="color:#75715e"># decompress the image file since we can&#39;t manipulate compressed files</span>
+xz -dk ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz 
+
+<span style="color:#75715e"># mount the image file onto a loop device</span>
+sudo losetup -Pf ubuntu-21.10-preinstalled-server-arm64+raspi.img
+
+<span style="color:#75715e"># I had to expand the root partition by 2GB to contain all the packages I was using</span>
+sudo truncate -c -s +2048M ubuntu-21.10-preinstalled-server-arm64+raspi.img
+<span style="color:#75715e"># parted gives machine parsable output on the partition table and I then get the array to get the new ending sector </span>
+<span style="color:#75715e"># before expanding the partition</span>
+IN<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>sudo parted /dev/loop0 print -m -s | tail -n 1<span style="color:#66d9ef">)</span>
+
+<span style="color:#75715e"># I had to disable this part of shellcheck (great linter btw) since I did want to split the output</span>
+<span style="color:#75715e"># shellcheck disable=SC2206</span>
+arrIN<span style="color:#f92672">=(</span><span style="color:#e6db74">${</span>IN//:/ <span style="color:#e6db74">}</span><span style="color:#f92672">)</span>
+
+<span style="color:#75715e"># the third item in the array contained the new ending sector of the root partition</span>
+sudo parted /dev/loop0 resizepart <span style="color:#ae81ff">2</span> <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">${</span>arrIN[2]<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span> -s
+<span style="color:#75715e"># forces a check and repair of the partition (it was required to get the resize2fs command to work)</span>
+sudo e2fsck -p -f /dev/loop0p2
+<span style="color:#75715e"># finally resize the filesystem to use the newly added space</span>
+sudo resize2fs /dev/loop0p2
+
+<span style="color:#75715e"># setup the mount points for the image</span>
+sudo mount /dev/loop0p2 /mnt/
+sudo mount /dev/loop0p1 /mnt/boot/firmware
+</code></pre></div><h2 id="breadcrumbs-to-get-cilium-working">Breadcrumbs to Get Cilium Working<a hidden class="anchor" aria-hidden="true" href="#breadcrumbs-to-get-cilium-working">#</a></h2>
+<h2 id="install-kubernetes">Install Kubernetes<a hidden class="anchor" aria-hidden="true" href="#install-kubernetes">#</a></h2>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://blog.serenacodes.com/tags/kubernetes/">Kubernetes</a></li>
+      <li><a href="https://blog.serenacodes.com/tags/homelab/">Homelab</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+    <span>&copy; 2022 <a href="https://blog.serenacodes.com/">Serena&#39;s Blog</a></span>
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://git.io/hugopapermod" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    if (menu) {
+        menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

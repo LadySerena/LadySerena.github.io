@@ -9,10 +9,16 @@ params:
     title: "Welcome to Serena's Cabinet of DevOps Curiosities"
     subtitle: "Hot Takes with a Pinch of Snark"
   socialIcons: # optional
-  - name: "Github"
-    url: "https://github.com/LadySerena"
-  - name: "Twitter"
-    url: "https://twitter.com/SerenaTiede"
+    - name: "Github"
+      url: "https://github.com/LadySerena"
+    - name: "Twitter"
+      url: "https://twitter.com/SerenaTiede"
+    - name: "Linkedin"
+      url: "https://www.linkedin.com/in/serena-tiede-28365b7b/"
+taxonomies:
+  category: categories
+  tag: tags
+  series: series
 menu:
   main:
     - identifier: about
@@ -23,3 +29,7 @@ menu:
       name: tags
       url: /tags/
       weight: 20
+    - identifier: series
+      name: series
+      url: /series/
+      weight: 30
